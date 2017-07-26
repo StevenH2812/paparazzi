@@ -30,7 +30,7 @@
  *
  */
 
-#include "modules/Decawave/Serial/Serial_Communication.h"
+#include "modules/decawave/Serial/Serial_Communication.h"
 
 
 #include <stdio.h>
@@ -71,10 +71,10 @@ struct link_device *xdev = STEREO_PORT;
 
 // Module data
 struct AvoidNavigationStruct {
-//  uint8_t mode; ///< 0 = straight, 1 =  right, 2 = left, ...
-  uint8_t decode_cnt;
+	//  uint8_t mode; ///< 0 = straight, 1 =  right, 2 = left, ...
+	uint8_t decode_cnt;
 	uint8_t stereo_bin[8];
-  uint8_t timeout;
+	uint8_t timeout;
 };
 
 struct AvoidNavigationStruct avoid_navigation_data;
@@ -105,7 +105,8 @@ static int stereo_parse(uint8_t c)
 
   if (avoid_navigation_data.decode_cnt == 5)
   {
-	  // decode: in de buffer staan nu 5 ASCII character van de afstand
+	  // decode: in de buffer staan nu 5 ASCII character van de afstand, bijvoorbeeld '0','0','0','2','2'
+	  //Strings zijn char arrays die eindigen met 0 in C
 	  avoid_navigation_data.stereo_bin[5] = 0;
 	  stereo_range_measurement = atoi((char*)avoid_navigation_data.stereo_bin);
 	  avoid_navigation_data.decode_cnt = 0;
@@ -128,31 +129,31 @@ void stereocam_droplet_init(void)
 }
 void stereocam_droplet_periodic(void)
 {
-  int newrange = 0;
+	int newrange = 0;
 
-  // Read Serial
-  while (StereoChAvailable()) {
-    if (stereo_parse(StereoGetch()) > 0)
-    	newrange++;
-  }
+	// Read Serial
+	while (StereoChAvailable()) {
+		if (stereo_parse(StereoGetch()) > 0)
+			newrange++;
+	}
 
-  if (avoid_navigation_data.timeout <= 0)
-    return;
+	if (avoid_navigation_data.timeout <= 0)
+		return;
 
-  if (newrange > 0)
-  {
-	  uint16_t a,b;
-	  char buf[256];
-	  sprintf(buf,"Range = %d", stereo_range_measurement);
+	if (newrange > 0)
+	{
+		uint8_t a,b;
+		char buf[256];
+		sprintf(buf,"Range = %d", stereo_range_measurement);
 
-	  a = (uint16_t) stereo_range_measurement;
-	  b=0;
-	  // Results
-	  //DOWNLINK_SEND_DEBUG(DefaultChannel, DefaultDevice, strlen(buf), (uint8_t*) buf);
-	  DOWNLINK_SEND_ADC_GENERIC(DefaultChannel, DefaultDevice, &a, &b);
-  }
+		a = stereo_range_measurement;
+		b=0;
+		// Results
+		//DOWNLINK_SEND_DEBUG(DefaultChannel, DefaultDevice, strlen(buf), (uint8_t*) buf);
+		DOWNLINK_SEND_DEBUG_MCU_LINK(DefaultChannel, DefaultDevice, &a, &b,&b);
+	}
 
-  avoid_navigation_data.timeout --;
+	avoid_navigation_data.timeout --;
 
 
 }

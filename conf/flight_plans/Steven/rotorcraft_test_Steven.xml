@@ -44,9 +44,9 @@
 	</variables>
 	<exceptions>
 		<exception cond="!InsideCyberZoo(GetPosX(), GetPosY())" deroute="Standby" />
-		<exception cond="datalink_time > 2" deroute="land here" />
-		<exception cond="electrical.bat_low && !(nav_block == IndexOfBlock('land')) && !(nav_block == IndexOfBlock('flare')) && !(nav_block == IndexOfBlock('landed'))"	deroute="land" />
-		<exception cond="electrical.bat_critical && !(nav_block == IndexOfBlock('land')) && !(nav_block == IndexOfBlock('flare')) && !(nav_block == IndexOfBlock('landed'))" deroute="land here" />
+		<!--exception cond="datalink_time > 2" deroute="land here" /-->
+		<!-- exception cond="electrical.bat_low && !(nav_block == IndexOfBlock('land')) && !(nav_block == IndexOfBlock('flare')) && !(nav_block == IndexOfBlock('landed'))"	deroute="land" />
+		<exception cond="electrical.bat_critical && !(nav_block == IndexOfBlock('land')) && !(nav_block == IndexOfBlock('flare')) && !(nav_block == IndexOfBlock('landed'))" deroute="land here" /-->
 	</exceptions>
 	<blocks>
 		<block name="Wait GPS">
