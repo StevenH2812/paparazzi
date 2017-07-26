@@ -1,0 +1,24 @@
+ <!DOCTYPE module SYSTEM "module.dtd">
+
+<module name="decawave_serial" dir="decawave">
+	<doc>
+		<description>
+			Decawave DWM1000 module serial communication
+		</description>
+	</doc>
+	<header>
+		<file name="Serial/Serial_Communication.h" />
+	</header>
+	<init fun="stereocam_droplet_init()" />
+	<periodic fun="stereocam_droplet_periodic()" freq="20"
+		autorun="TRUE" />
+	<makefile target="ap">
+		<file name="Serial/Serial_Communication.c" />
+		<configure name="STEREO_UART" default="uart1" case="upper|lower" />
+		<configure name="STEREO_BAUD" default="B9600" />
+		<configure name="STEREO_LED" default="3" />
+		<define name="USE_$(STEREO_UART_UPPER)" />
+		<define name="STEREO_UART" value="$(STEREO_UART_LOWER)" />
+		<define name="$(STEREO_UART_UPPER)_BAUD" value="$(STEREO_BAUD)" />
+	</makefile>
+</module>
