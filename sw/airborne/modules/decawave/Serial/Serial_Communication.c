@@ -25,13 +25,14 @@
  * <http://www.gnu.org/licenses/>.
  */
 /**
- * @file "modules/stereocam/droplet/stereocam_droplet.c"
- * @author C. DW
+ * @file "modules/decawave/Serial/Serial_Communication.h"
+ * @author S. vd H, C. DW
  *
  */
 
 #include "modules/decawave/Serial/Serial_Communication.h"
-
+#include "subsystems/datalink/telemetry.h"
+#include "subsystems/radio_control.h"
 
 #include <stdio.h>
 
@@ -73,7 +74,7 @@ int32_t globalcounter = 0;
 struct DataStruct {
 	//  uint8_t mode; ///< 0 = straight, 1 =  right, 2 = left, ...
 	uint8_t decode_cnt;
-	uint8_t bin[8];
+	uint8_t bin[10];
 	uint8_t timeout;
 };
 
@@ -82,39 +83,52 @@ struct DataStruct serial_data;
 
 
 static int range_measurement = 0;
+static int decimals = 0;
+static float range_float = 0.0;
+
+static void send_estimator(struct transport_tx *trans, struct link_device *dev);
+static void send_estimator(struct transport_tx *trans, struct link_device *dev){
+	pprz_msg_send_ESTIMATOR(trans,dev,AC_ID,&range_float,&range_float);
+}
 
 
-
-static int stereo_parse(uint8_t c);
-static int stereo_parse(uint8_t c)
+static int serial_parse(uint8_t c);
+static int serial_parse(uint8_t c)
 {
 
+	//printf("%c\n",(char)c);
+	//return -1;
 
-	//printf("%c",c);
-	//return;
     serial_data.timeout = 20;
 
-    printf("%i: %i\n",globalcounter,c);
-    globalcounter++;
-    return -1;
+    //printf("%i: %i\n",globalcounter,c);
+    //globalcounter++;
+    //return -1;
 
 	// arduino: printf("%05d\n"); in mm
-	if ((c == '\n') || (serial_data.decode_cnt > 7))
+	if (serial_data.decode_cnt > 9)
 	{
 		serial_data.decode_cnt = 0;
 		return -1;
 	}
+
   // Protocol is one byte only: store last instance
   serial_data.bin[serial_data.decode_cnt] = c;
   serial_data.decode_cnt++;
 
-  if (serial_data.decode_cnt == 5)
+  if ((char)c == '\n')
   {
 	  // decode: in de buffer staan nu 5 ASCII character van de afstand, bijvoorbeeld '0','0','0','2','2'
 	  //Strings zijn char arrays die eindigen met 0 in C
-	  serial_data.bin[5] = 0;
-	  range_measurement = atoi((char*)serial_data.bin);
+	  /*serial_data.bin[5] = 0;
+	  range_measurement = atoi((char*)serial_data.bin);*/
+
+	  serial_data.bin[serial_data.decode_cnt-1] = 0;
+	  range_float = atof((char*)serial_data.bin);
+	  //printf("%f\n",range_float);
 	  serial_data.decode_cnt = 0;
+
+
 	  return 1;
 
   }
@@ -129,6 +143,7 @@ void decawave_serial_init(void)
   // Do nothing
 	  serial_data.decode_cnt = 0;
 	  serial_data.timeout = 0;
+	  register_periodic_telemetry(DefaultPeriodic, PPRZ_MSG_ID_ESTIMATOR, send_estimator);
 
 	  //uart_periph_set_baudrate(&uart1,B9600);
 }
@@ -138,7 +153,7 @@ void decawave_serial_periodic(void)
 
 	// Read Serial
 	while (SerialChAvailable()) {
-		if (stereo_parse(SerialGetch()) > 0)
+		if (serial_parse(SerialGetch()) > 0)
 			newrange++;
 	}
 
@@ -147,23 +162,19 @@ void decawave_serial_periodic(void)
 
 	if (newrange > 0)
 	{
-		uint8_t a,b;
-		char buf[256];
-		//sprintf(buf,"Range = %d", range_measurement);
+		float a,b;
 
-
-		a = range_measurement;
-		b=0;
+		a = range_float;
+		b = 0.0;
 		// Results
 		//DOWNLINK_SEND_DEBUG(DefaultChannel, DefaultDevice, strlen(buf), (uint8_t*) buf);
-		DOWNLINK_SEND_DEBUG_MCU_LINK(DefaultChannel, DefaultDevice, &a, &b,&b);
+		//DOWNLINK_SEND_ESTIMATOR(DefaultChannel, DefaultDevice, &a, &b);
 	}
 
 	serial_data.timeout --;
 
 
 }
-
 
 
 
