@@ -67,7 +67,7 @@ struct link_device *xdev = SERIAL_PORT;
 
 
 
-
+int32_t globalcounter = 0;
 
 // Module data
 struct DataStruct {
@@ -89,9 +89,14 @@ static int stereo_parse(uint8_t c);
 static int stereo_parse(uint8_t c)
 {
 
+
 	//printf("%c",c);
 	//return;
     serial_data.timeout = 20;
+
+    printf("%i: %i\n",globalcounter,c);
+    globalcounter++;
+    return -1;
 
 	// arduino: printf("%05d\n"); in mm
 	if ((c == '\n') || (serial_data.decode_cnt > 7))
@@ -144,7 +149,8 @@ void decawave_serial_periodic(void)
 	{
 		uint8_t a,b;
 		char buf[256];
-		sprintf(buf,"Range = %d", range_measurement);
+		//sprintf(buf,"Range = %d", range_measurement);
+
 
 		a = range_measurement;
 		b=0;
