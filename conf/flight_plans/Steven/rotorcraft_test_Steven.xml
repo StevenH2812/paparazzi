@@ -86,6 +86,11 @@
 				<circle wp="GOAL" radius="selfradius" />
 			</while>
 		</block>
+		<block name="Spiral">
+			<while cond="LessThan(NavBlockTime(),200)">
+				<circle wp="GOAL" radius="0.5+NavBlockTime()*0.0125" />
+			</while>
+		</block>
 		<block name="land here" strip_button="land Here" strip_icon="land-right.png">
 			<call_once fun="NavSetWaypointHere(WP_TD)" />
 		</block>
