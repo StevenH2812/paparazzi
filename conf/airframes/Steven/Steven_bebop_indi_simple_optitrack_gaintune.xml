@@ -177,9 +177,9 @@
     <define name="REF_MAX_SPEED" value="5" unit="m/s"/>
     <!-- Bad weather -->
     <!-- define name="MAX_BANK" value="32" unit="deg"/ -->
-    <define name="PGAIN" value="250"/><!-- 250, 70, 30 with max speed 5 tested in simulation -->
-    <define name="DGAIN" value="70"/>
-    <define name="IGAIN" value="40"/>
+    <define name="PGAIN" value="120"/><!-- 250, 70, 30 with max speed 5 tested in simulation -->
+    <define name="DGAIN" value="90"/>
+    <define name="IGAIN" value="30"/>
   </section>
 
   <section name="NAVIGATION" prefix="NAV_">

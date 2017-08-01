@@ -33,6 +33,7 @@
 #include "modules/decawave/Serial/Serial_Communication.h"
 #include "subsystems/datalink/telemetry.h"
 #include "subsystems/radio_control.h"
+#include "state.h"
 
 #include <stdio.h>
 
@@ -67,7 +68,7 @@ struct link_device *xdev = SERIAL_PORT;
 #include "led.h"
 
 
-
+struct NedCoor_f current_pos;
 int32_t globalcounter = 0;
 
 // Module data
@@ -86,9 +87,11 @@ static int range_measurement = 0;
 static int decimals = 0;
 static float range_float = 0.0;
 
-static void send_estimator(struct transport_tx *trans, struct link_device *dev);
-static void send_estimator(struct transport_tx *trans, struct link_device *dev){
-	pprz_msg_send_ESTIMATOR(trans,dev,AC_ID,&range_float,&range_float);
+static void send_stab_attitude_indi(struct transport_tx *trans, struct link_device *dev);
+static void send_stab_attitude_indi(struct transport_tx *trans, struct link_device *dev){
+	current_pos = *stateGetPositionNed_f();
+	printf("x,y,z: %f,%f,%f\n",current_pos.x,current_pos.y,current_pos.z);
+	pprz_msg_send_STAB_ATTITUDE_INDI(trans,dev,AC_ID,&range_float,&range_float,&range_float,&range_float,&range_float,&range_float,&range_float,&range_float,&range_float,&range_float);
 }
 
 
@@ -143,8 +146,8 @@ void decawave_serial_init(void)
   // Do nothing
 	  serial_data.decode_cnt = 0;
 	  serial_data.timeout = 0;
-	  register_periodic_telemetry(DefaultPeriodic, PPRZ_MSG_ID_ESTIMATOR, send_estimator);
-
+	  register_periodic_telemetry(DefaultPeriodic, PPRZ_MSG_ID_STAB_ATTITUDE_INDI, send_stab_attitude_indi);
+	  SerialUartSetBaudrate(SERIAL_BAUD);
 	  //uart_periph_set_baudrate(&uart1,B9600);
 }
 void decawave_serial_periodic(void)
