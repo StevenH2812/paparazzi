@@ -69,6 +69,10 @@ struct link_device *xdev = SERIAL_PORT;
 
 
 struct NedCoor_f current_pos;
+struct NedCoor_f current_speed;
+struct NedCoor_f current_accel;
+struct FloatEulers current_angles;
+
 int32_t globalcounter = 0;
 
 // Module data
@@ -83,15 +87,17 @@ struct DataStruct serial_data;
 
 
 
-static int range_measurement = 0;
-static int decimals = 0;
+
 static float range_float = 0.0;
 
-static void send_stab_attitude_indi(struct transport_tx *trans, struct link_device *dev);
-static void send_stab_attitude_indi(struct transport_tx *trans, struct link_device *dev){
+static void send_range_pos(struct transport_tx *trans, struct link_device *dev);
+static void send_range_pos(struct transport_tx *trans, struct link_device *dev){
 	current_pos = *stateGetPositionNed_f();
-	printf("x,y,z: %f,%f,%f\n",current_pos.x,current_pos.y,current_pos.z);
-	pprz_msg_send_STAB_ATTITUDE_INDI(trans,dev,AC_ID,&range_float,&range_float,&range_float,&range_float,&range_float,&range_float,&range_float,&range_float,&range_float,&range_float);
+	current_speed = *stateGetSpeedNed_f();
+	current_accel = *stateGetAccelNed_f();
+	current_angles = *stateGetNedToBodyEulers_f();
+	//printf("range, x, y, z: %f, %f, %f, %f\n",range_float,current_pos.x,current_pos.y,current_pos.z);
+	pprz_msg_send_RANGE_POS(trans,dev,AC_ID,&range_float,&current_pos.x,&current_pos.y,&current_pos.z,&current_speed.x,&current_speed.y,&current_speed.z,&current_accel.x,&current_accel.y,&current_accel.z,&current_angles.phi,&current_angles.theta,&current_angles.psi);
 }
 
 
@@ -99,7 +105,7 @@ static int serial_parse(uint8_t c);
 static int serial_parse(uint8_t c)
 {
 
-	//printf("%c\n",(char)c);
+
 	//return -1;
 
     serial_data.timeout = 20;
@@ -146,12 +152,13 @@ void decawave_serial_init(void)
   // Do nothing
 	  serial_data.decode_cnt = 0;
 	  serial_data.timeout = 0;
-	  register_periodic_telemetry(DefaultPeriodic, PPRZ_MSG_ID_STAB_ATTITUDE_INDI, send_stab_attitude_indi);
-	  SerialUartSetBaudrate(SERIAL_BAUD);
+	  register_periodic_telemetry(DefaultPeriodic, PPRZ_MSG_ID_RANGE_POS, send_range_pos);
+	  //SerialUartSetBaudrate(SERIAL_BAUD);
 	  //uart_periph_set_baudrate(&uart1,B9600);
 }
 void decawave_serial_periodic(void)
 {
+	//printf("hello world\n");
 	int newrange = 0;
 
 	// Read Serial
@@ -169,6 +176,7 @@ void decawave_serial_periodic(void)
 
 		a = range_float;
 		b = 0.0;
+
 		// Results
 		//DOWNLINK_SEND_DEBUG(DefaultChannel, DefaultDevice, strlen(buf), (uint8_t*) buf);
 		//DOWNLINK_SEND_ESTIMATOR(DefaultChannel, DefaultDevice, &a, &b);

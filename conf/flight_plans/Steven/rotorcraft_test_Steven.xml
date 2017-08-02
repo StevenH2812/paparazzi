@@ -91,8 +91,13 @@
 			</while>
 		</block>
 		<block name="Spiral">
-			<while cond="LessThan(NavBlockTime(),100)">
+			<while cond="LessThan(NavBlockTime(),300)">
 				<circle wp="GOAL" radius="1+NavBlockTime()*0.015" />
+			</while>
+		</block>
+		<block name="NegSpiral">
+			<while cond="LessThan(NavBlockTime(),300)">
+				<circle wp="GOAL" radius="-1-NavBlockTime()*0.015" />
 			</while>
 		</block>
 		<block name="land here" strip_button="land Here" strip_icon="land-right.png">
