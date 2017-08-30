@@ -53,6 +53,7 @@ struct link_device *xdev = SERIAL_PORT;
 #define SerialSend(_dat,_len) { for (uint8_t i = 0; i< (_len); i++) SerialSend1(_dat[i]); };
 #define SerialUartSetBaudrate(_b) uart_periph_set_baudrate(SERIAL_PORT, _b);
 #define SerialChAvailable()(xdev->char_available(xdev->periph))
+#define SerialSendNow() uart_send_message(SERIAL_PORT->periph,0)
 
 
 
@@ -88,7 +89,10 @@ struct NedCoor_f current_speed;
 struct NedCoor_f current_accel;
 struct FloatEulers current_angles;
 
-float sendfloat = 0.0;
+float vx = 0.0;
+float vy = 10.1;
+float z = 20.17;
+float range_float = 0.0;
 
 
 static void decodeHighBytes(void);
@@ -96,19 +100,29 @@ static void encodeHighBytes(uint8_t* sendData, uint8_t msgSize);
 static void checkBigEndian(void);
 static int serial_parse(uint8_t c);
 static void send_range_pos(struct transport_tx *trans, struct link_device *dev);
+static void testSend();
+static void testReceive();
 
+static uint8_t testervar = 0;
 
 void decawave_serial_init(void)
 {
-	  register_periodic_telemetry(DefaultPeriodic, PPRZ_MSG_ID_RANGE_POS, send_range_pos);
+	  //register_periodic_telemetry(DefaultPeriodic, PPRZ_MSG_ID_RANGE_POS, send_range_pos);
 	  //SerialUartSetBaudrate(SERIAL_BAUD);
 	  //uart_periph_set_baudrate(&uart1,B9600);
 }
 void decawave_serial_periodic(void)
 {
+	testSend();
+	testReceive();
 
-	sendFloat(R,sendfloat);
-	sendfloat += 2;
+/*
+	sendFloat(VX,vx);
+	sendFloat(VY,vy);
+	sendFloat(Z,z);
+	vx += 1;
+	vy += 2;
+	z += 3;
 	/*
 	current_pos = *stateGetPositionNed_f();
 	current_speed = *stateGetSpeedNed_f();
@@ -118,16 +132,51 @@ void decawave_serial_periodic(void)
 		rfloat = receiveFloat(i);
 		printf("Received float is: %f\n",rfloat);
 	}
+
+	float rfloat;
+	for (int i = 0; i<IN_MESSAGES;i++){
+		rfloat = receiveFloat(i);
+		printf("Received float %i is: %f\n",i,rfloat);
+	}
 	*/
 
 
 }
 
 void decawave_serial_event(void){
-	getSerialData();
-	for (int i = 0; i<IN_MESSAGES;i++){
-		rfloat = receiveFloat(i);
-		printf("Received float is: %f\n",rfloat);
+	//getSerialData();
+
+}
+
+void testSend(){
+	//float testerfloat = 3.5;
+	//uint8_t testerbyte[4] = {2,3,4,5};
+	//memcpy(&testerbyte,&testerfloat,sizeof(float));
+	/*
+	if (testervar>254){
+		testervar = 0;
+	}
+	*/
+	/*
+	for(int i=0;i<4;i++){
+		uart_put_byte(&SERIAL_UART,0,testerbyte[i]);
+		SerialSend1(testerbyte[i]);
+	}*/
+	//unsigned char tosend[2] = {1,2};
+
+	SerialSend1(1);
+	SerialSend1(1);
+	//SerialSend(tosend,2);
+	//uart_put_buffer(&SERIAL_UART,0,&tosend,2);
+/*	SerialSend1(tosend);
+	SerialSend1(tosend);
+	SerialSend1(tosend);
+	SerialSend1(tosend);*/
+}
+
+void testReceive(){
+	while (SerialChAvailable()){
+		printf("Received byte: %u\n",SerialGetch());
 	}
 }
 
@@ -206,13 +255,32 @@ float receiveFloat(uint8_t msgtype){
  * a start marker, the message type, 4 bytes for the float, and the end marker.
  */
 void sendFloat(uint8_t msgtype, float outfloat){
-	uint8_t floatbyte[4];
-	memcpy(floatbyte,&outfloat,4);
-	encodeHighBytes(floatbyte,4);
+	/*
+	//uint8_t floatbyte[4];
+	//memcpy(floatbyte,&outfloat,4);
+	//encodeHighBytes(floatbyte,4);
 	SerialSend1(START_MARKER);
 	SerialSend1(msgtype);
-	SerialSend(_tempBuffer,_dataTotalSend);
+	//SerialSend(_tempBuffer,_dataTotalSend);
+	SerialSend1(0);
+	SerialSend1(0);
+	SerialSend1(96);
+	SerialSend1(64);
 	SerialSend1(END_MARKER);
+	SerialSendNow();
+	//printf("tried to send float\n");
+	 */
+
+	uart_put_byte(&SERIAL_UART,0,START_MARKER);
+	uart_put_byte(&SERIAL_UART,0,msgtype);
+	uart_put_byte(&SERIAL_UART,0,0);
+	uart_put_byte(&SERIAL_UART,0,0);
+	uart_put_byte(&SERIAL_UART,0,96);
+	uart_put_byte(&SERIAL_UART,0,64);
+	uart_put_byte(&SERIAL_UART,0,END_MARKER);
+	//printf("tried to send float\n");
+
+
 }
 
 /**

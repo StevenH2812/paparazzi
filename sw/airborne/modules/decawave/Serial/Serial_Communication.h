@@ -17,7 +17,7 @@
 #define END_MARKER 255
 #define SPECIAL_BYTE 253
 #define START_MARKER 254
-#define IN_MESSAGES 1
+#define IN_MESSAGES 3
 
 // Message in types
 #define VX 0
