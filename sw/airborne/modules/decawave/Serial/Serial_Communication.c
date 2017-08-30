@@ -34,11 +34,12 @@
 #include "subsystems/datalink/telemetry.h"
 #include "subsystems/radio_control.h"
 #include "state.h"
-
+#include "pprzlink/messages.h"
+#include "subsystems/datalink/downlink.h"
+#include "mcu_periph/uart.h"
 #include <stdio.h>
 
-// Serial Port
-#include "mcu_periph/uart.h"
+
 PRINT_CONFIG_VAR(SERIAL_UART)
 PRINT_CONFIG_VAR(SERIAL_BAUD)
 
@@ -55,42 +56,82 @@ struct link_device *xdev = SERIAL_PORT;
 
 
 
+struct MessageIn{
+	uint8_t type;
+	uint8_t msg[IN_MESSAGE_SIZE];
+};
+
+static uint8_t _bytesRecvd = 0;
+static uint8_t _dataSentNum = 0;
+static uint8_t _dataRecvCount = 0;
+
+//static uint8_t _dataRecvd[MAX_MESSAGE];
+static uint8_t _dataSend[MAX_MESSAGE];
+static uint8_t _tempBuffer[MAX_MESSAGE];
+
+static uint8_t _dataSendCount = 0;
+static uint8_t _dataTotalSend = 0;
+
+static bool _inProgress = false;
+static bool _startFound = false;
+static bool _allReceived = false;
+
+static uint8_t _varByte = 0;
+
+static bool _bigEndian = false;
 
 
-
-// Downlink
-#ifndef DOWNLINK_DEVICE
-#define DOWNLINK_DEVICE DOWNLINK_AP_DEVICE
-#endif
-#include "pprzlink/messages.h"
-#include "subsystems/datalink/downlink.h"
-
-#include "led.h"
-
-
+static struct MessageIn _receiveMessages[IN_MESSAGES];
+//static struct MessageOut _sendMessages[OUT_MESSAGES];
 struct NedCoor_f current_pos;
 struct NedCoor_f current_speed;
 struct NedCoor_f current_accel;
 struct FloatEulers current_angles;
 
-int32_t globalcounter = 0;
-
-// Module data
-struct DataStruct {
-	//  uint8_t mode; ///< 0 = straight, 1 =  right, 2 = left, ...
-	uint8_t decode_cnt;
-	uint8_t bin[10];
-	uint8_t timeout;
-};
-
-struct DataStruct serial_data;
+float sendfloat = 0.0;
 
 
-
-
-static float range_float = 0.0;
-
+static void decodeHighBytes(void);
+static void encodeHighBytes(uint8_t* sendData, uint8_t msgSize);
+static void checkBigEndian(void);
+static int serial_parse(uint8_t c);
 static void send_range_pos(struct transport_tx *trans, struct link_device *dev);
+
+
+void decawave_serial_init(void)
+{
+	  register_periodic_telemetry(DefaultPeriodic, PPRZ_MSG_ID_RANGE_POS, send_range_pos);
+	  //SerialUartSetBaudrate(SERIAL_BAUD);
+	  //uart_periph_set_baudrate(&uart1,B9600);
+}
+void decawave_serial_periodic(void)
+{
+
+	sendFloat(R,sendfloat);
+	sendfloat += 2;
+	/*
+	current_pos = *stateGetPositionNed_f();
+	current_speed = *stateGetSpeedNed_f();
+	float rfloat;
+	rfloat = 112.0;
+	for (int i = 0; i<IN_MESSAGES;i++){
+		rfloat = receiveFloat(i);
+		printf("Received float is: %f\n",rfloat);
+	}
+	*/
+
+
+}
+
+void decawave_serial_event(void){
+	getSerialData();
+	for (int i = 0; i<IN_MESSAGES;i++){
+		rfloat = receiveFloat(i);
+		printf("Received float is: %f\n",rfloat);
+	}
+}
+
+
 static void send_range_pos(struct transport_tx *trans, struct link_device *dev){
 	current_pos = *stateGetPositionNed_f();
 	current_speed = *stateGetSpeedNed_f();
@@ -101,90 +142,111 @@ static void send_range_pos(struct transport_tx *trans, struct link_device *dev){
 }
 
 
-static int serial_parse(uint8_t c);
-static int serial_parse(uint8_t c)
-{
+/**
+ * Function for receiving serial data.
+ * Only receives serial data that is between the start and end markers. Discards all other data.
+ * Stores the received data in _tempBuffer, and after decodes the high bytes and copies the final
+ * message to the corresponding message in _messages.
+ */
+void getSerialData(void){
+	while (SerialChAvailable()){
+		_varByte = SerialGetch();
+		if (_varByte == START_MARKER){
+			_bytesRecvd = 0;
+			_inProgress = true;
+		}
 
+		if (_inProgress){
+			_tempBuffer[_bytesRecvd] = _varByte;
+			_bytesRecvd++;
+		}
 
-	//return -1;
+		if (_varByte == END_MARKER){
+			_inProgress = false;
+			_allReceived = true;
 
-    serial_data.timeout = 20;
-
-    //printf("%i: %i\n",globalcounter,c);
-    //globalcounter++;
-    //return -1;
-
-	// arduino: printf("%05d\n"); in mm
-	if (serial_data.decode_cnt > 9)
-	{
-		serial_data.decode_cnt = 0;
-		return -1;
+			decodeHighBytes();
+		}
 	}
 
-  // Protocol is one byte only: store last instance
-  serial_data.bin[serial_data.decode_cnt] = c;
-  serial_data.decode_cnt++;
-
-  if ((char)c == '\n')
-  {
-	  // decode: in de buffer staan nu 5 ASCII character van de afstand, bijvoorbeeld '0','0','0','2','2'
-	  //Strings zijn char arrays die eindigen met 0 in C
-	  /*serial_data.bin[5] = 0;
-	  range_measurement = atoi((char*)serial_data.bin);*/
-
-	  serial_data.bin[serial_data.decode_cnt-1] = 0;
-	  range_float = atof((char*)serial_data.bin);
-	  //printf("%f\n",range_float);
-	  serial_data.decode_cnt = 0;
-
-
-	  return 1;
-
-  }
-
-
-  return 0;
 }
 
-
-void decawave_serial_init(void)
-{
-  // Do nothing
-	  serial_data.decode_cnt = 0;
-	  serial_data.timeout = 0;
-	  register_periodic_telemetry(DefaultPeriodic, PPRZ_MSG_ID_RANGE_POS, send_range_pos);
-	  //SerialUartSetBaudrate(SERIAL_BAUD);
-	  //uart_periph_set_baudrate(&uart1,B9600);
+/**
+ * Function for decoding the high bytes of received serial data and saving the message.
+ * Since the start and end marker could also be regular payload bytes (since they are simply the values
+ * 254 and 255, which could also be payload data) the payload values 254 and 255 have been encoded
+ * as byte pairs 253 1 and 253 2 respectively. Value 253 itself is encoded as 253 0.
+ *  This function will decode these back into values the original payload values.
+ */
+static void decodeHighBytes(void){
+	_dataRecvCount = 0;
+	uint8_t msgType = _tempBuffer[1];
+	for (uint8_t i = 2; i<_bytesRecvd-1; i++){ // Skip the begin marker (0), message type (1), and end marker (_bytesRecvd-1)
+		_varByte = _tempBuffer[i];
+		if (_varByte == SPECIAL_BYTE){
+			i++;
+			_varByte = _varByte + _tempBuffer[i];
+		}
+		_receiveMessages[msgType].msg[_dataRecvCount] = _varByte;
+		_dataRecvCount++;
+	}
 }
-void decawave_serial_periodic(void)
+
+/**
+ * Function used to receive a float with a certain message ID
+ */
+float receiveFloat(uint8_t msgtype){
+	float tempfloat;
+	memcpy(&tempfloat,&_receiveMessages[msgtype].msg,4);
+	return tempfloat;
+}
+
+/**
+ * Function that will send a float over serial. The actual message that will be sent will have
+ * a start marker, the message type, 4 bytes for the float, and the end marker.
+ */
+void sendFloat(uint8_t msgtype, float outfloat){
+	uint8_t floatbyte[4];
+	memcpy(floatbyte,&outfloat,4);
+	encodeHighBytes(floatbyte,4);
+	SerialSend1(START_MARKER);
+	SerialSend1(msgtype);
+	SerialSend(_tempBuffer,_dataTotalSend);
+	SerialSend1(END_MARKER);
+}
+
+/**
+ * Function that encodes the high bytes of the serial data to be sent.
+ * Start and end markers are reserved values 254 and 255. In order to be able to send these values,
+ * the payload values 253, 254, and 255 are encoded as 2 bytes, respectively 253 0, 253 1, and 253 2.
+ */
+static void encodeHighBytes(uint8_t* sendData, uint8_t msgSize){
+	_dataSendCount = msgSize;
+	_dataTotalSend = 0;
+	for (uint8_t i = 0; i < _dataSendCount; i++){
+		if (sendData[i] >= SPECIAL_BYTE){
+			_tempBuffer[_dataTotalSend] = SPECIAL_BYTE;
+			_dataTotalSend++;
+			_tempBuffer[_dataTotalSend] = sendData[i] - SPECIAL_BYTE;
+		}
+		else{
+			_tempBuffer[_dataTotalSend] = sendData[i];
+		}
+		_dataTotalSend++;
+	}
+}
+
+/**
+ * Function to check the endianness of the system
+ */
+static void checkBigEndian(void)
 {
-	//printf("hello world\n");
-	int newrange = 0;
+    union {
+        uint32_t i;
+        char c[4];
+    } un = {0x01020304};
 
-	// Read Serial
-	while (SerialChAvailable()) {
-		if (serial_parse(SerialGetch()) > 0)
-			newrange++;
-	}
-
-	if (serial_data.timeout <= 0)
-		return;
-
-	if (newrange > 0)
-	{
-		float a,b;
-
-		a = range_float;
-		b = 0.0;
-
-		// Results
-		//DOWNLINK_SEND_DEBUG(DefaultChannel, DefaultDevice, strlen(buf), (uint8_t*) buf);
-		//DOWNLINK_SEND_ESTIMATOR(DefaultChannel, DefaultDevice, &a, &b);
-	}
-
-	serial_data.timeout --;
-
-
+    _bigEndian = un.c[0] == 1;
 }
 
 
