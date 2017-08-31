@@ -10,7 +10,7 @@
 		<file name="Serial/Serial_Communication.h" />
 	</header>
 	<init fun="decawave_serial_init()" />
-	<periodic fun="decawave_serial_periodic()" freq="0.5"
+	<periodic fun="decawave_serial_periodic()" freq="1"
 		autorun="TRUE" />
 	<event fun="decawave_serial_event()"/>
 	<makefile target="ap">

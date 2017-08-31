@@ -36,8 +36,8 @@
     <module name="air_data"/>
     <module name="send_imu_mag_current"/>
     <module name="Decawave_Serial_Communication">
-		<configure name="STEREO_UART" value="UART2" />
-		<configure name="STEREO_BAUD" value="B9600" />
+		<configure name="SERIAL_UART" value="UART2" />
+		<configure name="SERIAL_BAUD" value="B57600" />
 	</module>
     <module name="logger_file">
       <define name="FILE_LOGGER_PATH" value="/data/ftp/internal_000"/>

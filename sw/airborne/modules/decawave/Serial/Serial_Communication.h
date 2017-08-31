@@ -19,13 +19,13 @@
 #define START_MARKER 254
 #define IN_MESSAGES 3
 
-// Message in types
+#define MAX_NODES 5
+
+// Message types
 #define VX 0
 #define VY 1
 #define Z 2
-
-// Message out types
-#define R 0
+#define R 3
 
 
 extern void decawave_serial_init(void);
