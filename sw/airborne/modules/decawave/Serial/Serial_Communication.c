@@ -55,12 +55,13 @@ struct link_device *xdev = SERIAL_PORT;
 #define SerialChAvailable()(xdev->char_available(xdev->periph))
 #define SerialSendNow() uart_send_message(SERIAL_PORT->periph,0)
 
-struct storeState{
+struct nodeState{
 	uint8_t nodeAddress;
 	float vx;
 	float vy;
 	float z;
 	float r;
+	bool stateUpdated[NODE_STATE_SIZE];
 };
 
 struct MessageIn{
@@ -73,9 +74,10 @@ static uint8_t _bytesRecvd = 0;
 static uint8_t _dataSentNum = 0;
 static uint8_t _dataRecvCount = 0;
 
-//static uint8_t _dataRecvd[MAX_MESSAGE];
-static uint8_t _dataSend[MAX_MESSAGE];
+
 static uint8_t _tempBuffer[MAX_MESSAGE];
+static uint8_t _tempBuffer2[MAX_MESSAGE];
+static uint8_t _recvBuffer[FLOAT_SIZE];
 
 static uint8_t _dataSendCount = 0;
 static uint8_t _dataTotalSend = 0;
@@ -89,55 +91,79 @@ static uint8_t _varByte = 0;
 static bool _bigEndian = false;
 
 
-static struct MessageIn _receiveMessages[IN_MESSAGES];
-//static struct MessageOut _sendMessages[OUT_MESSAGES];
-static struct storeState _states[MAX_NODES];
+
+static struct nodeState _states[DIST_NUM_NODES];
 
 struct NedCoor_f current_pos;
 struct NedCoor_f current_speed;
 struct NedCoor_f current_accel;
 struct FloatEulers current_angles;
 
-float vx = 0.0;
-float vy = 10.1;
-float z = 20.17;
 float range_float = 0.0;
 
 
 static void decodeHighBytes(void);
 static void encodeHighBytes(uint8_t* sendData, uint8_t msgSize);
 static void checkBigEndian(void);
-static int serial_parse(uint8_t c);
 static void send_range_pos(struct transport_tx *trans, struct link_device *dev);
 static void testSend();
 static void testReceive();
+static void handleNewStateValue(uint8_t nodeIndex, uint8_t msgType, float value);
+static void setNodeStatesFalse();
+static void checkStatesUpdated();
 
-static uint8_t testervar = 0;
+
 
 void decawave_serial_init(void)
 {
-	  //register_periodic_telemetry(DefaultPeriodic, PPRZ_MSG_ID_RANGE_POS, send_range_pos);
-	  //SerialUartSetBaudrate(SERIAL_BAUD);
-	  //uart_periph_set_baudrate(&uart1,B9600);
+	setNodeStatesFalse();
+	register_periodic_telemetry(DefaultPeriodic, PPRZ_MSG_ID_RANGE_POS, send_range_pos);
+	//SerialUartSetBaudrate(SERIAL_BAUD);
+	//uart_periph_set_baudrate(&uart1,B9600);
 }
+
 void decawave_serial_periodic(void)
 {
 
+	current_speed = *stateGetSpeedNed_f();
+	current_pos = *stateGetPositionNed_f();
 
-	sendFloat(VX,vx);
-	sendFloat(VY,vy);
-	sendFloat(Z,z);
-	printf("Received vx: %f, last send vx: %f\n",receiveFloat(VX),vx);
-	printf("Received vy: %f, last send vy: %f\n",receiveFloat(VY),vy);
-	printf("Received z: %f, last send z: %f\n",receiveFloat(Z),z);
-	vx += 1;
-	vy += 2;
-	z += 3;
+	sendFloat(VX,current_speed.x);
+	sendFloat(VY,current_speed.y);
+	sendFloat(Z,current_pos.z);
+
 }
 
 void decawave_serial_event(void){
 	getSerialData();
+	checkStatesUpdated();
 
+}
+
+static void setNodeStatesFalse(){
+	for (uint8_t i = 0; i < DIST_NUM_NODES; i++){
+		for (uint8_t j = 0; j < NODE_STATE_SIZE; j++){
+			_states[i].stateUpdated[j] = false;
+		}
+	}
+}
+
+/**
+ * This function checks if all the states of all the distant nodes have at least once been updated.
+ * If all the states are updated, then do something with it! AKA CALLBACK TO MARIO
+ */
+static void checkStatesUpdated(){
+	bool checkbool = true;
+	for (uint8_t i = 0; i < DIST_NUM_NODES; i++){
+		for (uint8_t j = 0; j < NODE_STATE_SIZE; j++){
+			checkbool = checkbool && _states[i].stateUpdated[j];
+		}
+	}
+	if (checkbool){
+		// ------- CALLBACK TO MARIO ------------------//
+		printf("All states were updated!");
+		setNodeStatesFalse();
+	}
 }
 
 void testSend(){
@@ -223,26 +249,43 @@ void getSerialData(void){
  */
 static void decodeHighBytes(void){
 	_dataRecvCount = 0;
-	uint8_t msgType = _tempBuffer[1];
-	for (uint8_t i = 2; i<_bytesRecvd-1; i++){ // Skip the begin marker (0), message type (1), and end marker (_bytesRecvd-1)
+	float tempfloat;
+	uint8_t thisAddress = _tempBuffer[1];
+	uint8_t msgFrom = _tempBuffer[2];
+	uint8_t msgType = _tempBuffer[3];
+	uint8_t nodeIndex = msgFrom -1 - (uint8_t)(thisAddress<msgFrom);
+	for (uint8_t i = 4; i<_bytesRecvd-1; i++){ // Skip the begin marker (0), this address (1), remote address (2), message type (3), and end marker (_bytesRecvd-1)
 		_varByte = _tempBuffer[i];
 		if (_varByte == SPECIAL_BYTE){
 			i++;
 			_varByte = _varByte + _tempBuffer[i];
 		}
-		_receiveMessages[msgType].msg[_dataRecvCount] = _varByte;
+		if(_dataRecvCount<=FLOAT_SIZE){
+			_recvBuffer[_dataRecvCount] = _varByte;
+		}
 		_dataRecvCount++;
+	}
+	if(_dataRecvCount==FLOAT_SIZE){
+		memcpy(&tempfloat,&_recvBuffer,FLOAT_SIZE);
+		handleNewStateValue(nodeIndex,msgType,tempfloat);
 	}
 }
 
 /**
- * Function used to receive a float with a certain message ID
+ * Function that is called when over the serial a new state value from a remote node is received
  */
-float receiveFloat(uint8_t msgtype){
-	float tempfloat;
-	memcpy(&tempfloat,&_receiveMessages[msgtype].msg,4);
-	return tempfloat;
+static void handleNewStateValue(uint8_t nodeIndex, uint8_t msgType, float value){
+	struct nodeState node = _states[nodeIndex];
+	switch(msgType){
+	case VX : node.vx=value; node.stateUpdated[VX] = true; break;
+	case VY : node.vy=value; node.stateUpdated[VY] = true; break;
+	case Z : node.z=value; node.stateUpdated[Z] = true; break;
+	case R : node.r=value; node.stateUpdated[R] = true; break;
+	}
+
 }
+
+
 
 /**
  * Function that will send a float over serial. The actual message that will be sent will have
@@ -255,7 +298,7 @@ void sendFloat(uint8_t msgtype, float outfloat){
 	encodeHighBytes(floatbyte,4);
 	SerialSend1(START_MARKER);
 	SerialSend1(msgtype);
-	SerialSend(_tempBuffer,_dataTotalSend);
+	SerialSend(_tempBuffer2,_dataTotalSend);
 	SerialSend1(END_MARKER);
 
 	/*
@@ -291,12 +334,12 @@ static void encodeHighBytes(uint8_t* sendData, uint8_t msgSize){
 	_dataTotalSend = 0;
 	for (uint8_t i = 0; i < _dataSendCount; i++){
 		if (sendData[i] >= SPECIAL_BYTE){
-			_tempBuffer[_dataTotalSend] = SPECIAL_BYTE;
+			_tempBuffer2[_dataTotalSend] = SPECIAL_BYTE;
 			_dataTotalSend++;
-			_tempBuffer[_dataTotalSend] = sendData[i] - SPECIAL_BYTE;
+			_tempBuffer2[_dataTotalSend] = sendData[i] - SPECIAL_BYTE;
 		}
 		else{
-			_tempBuffer[_dataTotalSend] = sendData[i];
+			_tempBuffer2[_dataTotalSend] = sendData[i];
 		}
 		_dataTotalSend++;
 	}

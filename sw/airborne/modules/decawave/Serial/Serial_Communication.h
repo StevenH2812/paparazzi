@@ -18,8 +18,14 @@
 #define SPECIAL_BYTE 253
 #define START_MARKER 254
 #define IN_MESSAGES 3
+#define NODE_STATE_SIZE 4
+
+#define FLOAT_SIZE 4
 
 #define MAX_NODES 5
+#define NUM_NODES 2
+
+#define DIST_NUM_NODES NUM_NODES-1
 
 // Message types
 #define VX 0
@@ -34,7 +40,6 @@ extern void decawave_serial_event(void);
 
 extern void getSerialData(void);
 extern void sendFloat(uint8_t msgtype, float outfloat);
-extern float receiveFloat(uint8_t msgtype);
 
 
 
