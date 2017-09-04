@@ -64,14 +64,15 @@ struct nodeState{
 	bool stateUpdated[NODE_STATE_SIZE];
 };
 
+/*
 struct MessageIn{
 	uint8_t type;
 	uint8_t nodeAddress;
 	uint8_t msg[IN_MESSAGE_SIZE];
-};
+};*/
 
 static uint8_t _bytesRecvd = 0;
-static uint8_t _dataSentNum = 0;
+//static uint8_t _dataSentNum = 0;
 static uint8_t _dataRecvCount = 0;
 
 
@@ -88,7 +89,6 @@ static bool _allReceived = false;
 
 static uint8_t _varByte = 0;
 
-static bool _bigEndian = false;
 
 
 
@@ -106,22 +106,29 @@ static void decodeHighBytes(void);
 static void encodeHighBytes(uint8_t* sendData, uint8_t msgSize);
 static void checkBigEndian(void);
 static void send_range_pos(struct transport_tx *trans, struct link_device *dev);
-static void testSend();
-static void testReceive();
 static void handleNewStateValue(uint8_t nodeIndex, uint8_t msgType, float value);
-static void setNodeStatesFalse();
+static void setNodeStatesFalse(uint8_t index);
+static void setAllNodeStatesFalse();
 static void checkStatesUpdated();
+//static void initNodes();
 
 
 
+/**
+ * Initialization function. Initializes nodes (which contain data of other bebops) and registers a periodic message.
+ */
 void decawave_serial_init(void)
 {
-	setNodeStatesFalse();
+	//initNodes();
+	setAllNodeStatesFalse();
 	register_periodic_telemetry(DefaultPeriodic, PPRZ_MSG_ID_RANGE_POS, send_range_pos);
 	//SerialUartSetBaudrate(SERIAL_BAUD);
 	//uart_periph_set_baudrate(&uart1,B9600);
 }
 
+/**
+ * This function periodically sends state data over the serial (which is received by the arduino)
+ */
 void decawave_serial_periodic(void)
 {
 
@@ -132,19 +139,37 @@ void decawave_serial_periodic(void)
 	sendFloat(VY,current_speed.y);
 	sendFloat(Z,current_pos.z);
 
+
+
+
 }
 
+/**
+ * Event function currently checks for serial data and whether an update of states is available for a distant drone.
+ * If these cases are true, then actions are taken.
+ */
 void decawave_serial_event(void){
 	getSerialData();
 	checkStatesUpdated();
 
+
 }
 
-static void setNodeStatesFalse(){
+/**
+ * Helper function that sets the boolean that tells whether a remote drone has a new state update to false.
+ */
+static void setNodeStatesFalse(uint8_t index){
+	for (uint8_t j = 0; j < NODE_STATE_SIZE; j++){
+		_states[index].stateUpdated[j] = false;
+	}
+}
+
+/**
+ * Helper function that sets the booleans to false for all the remote drones (DIST_NUM_NODES)
+ */
+static void setAllNodeStatesFalse(){
 	for (uint8_t i = 0; i < DIST_NUM_NODES; i++){
-		for (uint8_t j = 0; j < NODE_STATE_SIZE; j++){
-			_states[i].stateUpdated[j] = false;
-		}
+		setNodeStatesFalse(i);
 	}
 }
 
@@ -153,51 +178,19 @@ static void setNodeStatesFalse(){
  * If all the states are updated, then do something with it! AKA CALLBACK TO MARIO
  */
 static void checkStatesUpdated(){
-	bool checkbool = true;
+	bool checkbool;
 	for (uint8_t i = 0; i < DIST_NUM_NODES; i++){
+		checkbool = true;
 		for (uint8_t j = 0; j < NODE_STATE_SIZE; j++){
 			checkbool = checkbool && _states[i].stateUpdated[j];
 		}
+		if (checkbool){
+			// ------- CALLBACK TO MARIO ------------------//
+			printf("States for drone %i: r = %f, vx = %f, vy = %f, z = %f \n",i,_states[i].r,_states[i].vx,_states[i].vy,_states[i].z);
+			setNodeStatesFalse(i);
+		}
 	}
-	if (checkbool){
-		// ------- CALLBACK TO MARIO ------------------//
-		printf("All states were updated!");
-		setNodeStatesFalse();
-	}
-}
 
-void testSend(){
-	//float testerfloat = 3.5;
-	//uint8_t testerbyte[4] = {2,3,4,5};
-	//memcpy(&testerbyte,&testerfloat,sizeof(float));
-	/*
-	if (testervar>254){
-		testervar = 0;
-	}
-	*/
-	/*
-	for(int i=0;i<4;i++){
-		uart_put_byte(&SERIAL_UART,0,testerbyte[i]);
-		SerialSend1(testerbyte[i]);
-	}*/
-	//unsigned char tosend[2] = {1,2};
-
-	SerialSend1(1);
-	SerialSend1(2);
-	SerialSend1(3);
-	SerialSend1(4);
-	//SerialSend(tosend,2);
-	//uart_put_buffer(&SERIAL_UART,0,&tosend,2);
-/*	SerialSend1(tosend);
-	SerialSend1(tosend);
-	SerialSend1(tosend);
-	SerialSend1(tosend);*/
-}
-
-void testReceive(){
-	while (SerialChAvailable()){
-		printf("Received byte: %u\n",SerialGetch());
-	}
 }
 
 
@@ -206,7 +199,6 @@ static void send_range_pos(struct transport_tx *trans, struct link_device *dev){
 	current_speed = *stateGetSpeedNed_f();
 	current_accel = *stateGetAccelNed_f();
 	current_angles = *stateGetNedToBodyEulers_f();
-	//printf("range, x, y, z: %f, %f, %f, %f\n",range_float,current_pos.x,current_pos.y,current_pos.z);
 	pprz_msg_send_RANGE_POS(trans,dev,AC_ID,&range_float,&current_pos.x,&current_pos.y,&current_pos.z,&current_speed.x,&current_speed.y,&current_speed.z,&current_accel.x,&current_accel.y,&current_accel.z,&current_angles.phi,&current_angles.theta,&current_angles.psi);
 }
 
@@ -275,12 +267,12 @@ static void decodeHighBytes(void){
  * Function that is called when over the serial a new state value from a remote node is received
  */
 static void handleNewStateValue(uint8_t nodeIndex, uint8_t msgType, float value){
-	struct nodeState node = _states[nodeIndex];
+	struct nodeState *node = &_states[nodeIndex];
 	switch(msgType){
-	case VX : node.vx=value; node.stateUpdated[VX] = true; break;
-	case VY : node.vy=value; node.stateUpdated[VY] = true; break;
-	case Z : node.z=value; node.stateUpdated[Z] = true; break;
-	case R : node.r=value; node.stateUpdated[R] = true; break;
+	case VX : node->vx=value; node->stateUpdated[VX] = true; break;
+	case VY : node->vy=value; node->stateUpdated[VY] = true; break;
+	case Z  : node->z=value ; node->stateUpdated[Z]  = true; break;
+	case R  : node->r=value ; node->stateUpdated[R]  = true; break;
 	}
 
 }
@@ -300,28 +292,6 @@ void sendFloat(uint8_t msgtype, float outfloat){
 	SerialSend1(msgtype);
 	SerialSend(_tempBuffer2,_dataTotalSend);
 	SerialSend1(END_MARKER);
-
-	/*
-	SerialSend1(0);
-	SerialSend1(0);
-	SerialSend1(96);
-	SerialSend1(64);
-	SerialSend1(END_MARKER);
-	SerialSendNow();
-	printf("tried to send float\n");
-
-
-	uart_put_byte(&SERIAL_UART,0,START_MARKER);
-	uart_put_byte(&SERIAL_UART,0,msgtype);
-	uart_put_byte(&SERIAL_UART,0,0);
-	uart_put_byte(&SERIAL_UART,0,0);
-	uart_put_byte(&SERIAL_UART,0,96);
-	uart_put_byte(&SERIAL_UART,0,64);
-	uart_put_byte(&SERIAL_UART,0,END_MARKER);
-	printf("tried to send float\n");
-	*/
-
-
 }
 
 /**
@@ -344,20 +314,6 @@ static void encodeHighBytes(uint8_t* sendData, uint8_t msgSize){
 		_dataTotalSend++;
 	}
 }
-
-/**
- * Function to check the endianness of the system
- */
-static void checkBigEndian(void)
-{
-    union {
-        uint32_t i;
-        char c[4];
-    } un = {0x01020304};
-
-    _bigEndian = un.c[0] == 1;
-}
-
 
 
 
