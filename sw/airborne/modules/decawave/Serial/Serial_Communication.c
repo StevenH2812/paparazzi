@@ -110,6 +110,8 @@ static void handleNewStateValue(uint8_t nodeIndex, uint8_t msgType, float value)
 static void setNodeStatesFalse(uint8_t index);
 static void setAllNodeStatesFalse();
 static void checkStatesUpdated();
+static void uwbStateUpdateCallback(uint8_t sender_id __attribute__((unused)),
+	uint8_t ac_id, int8_t source_strength, int8_t rssi);
 //static void initNodes();
 
 
@@ -317,4 +319,87 @@ static void encodeHighBytes(uint8_t* sendData, uint8_t msgSize){
 
 
 
+static void uwbStateUpdateCallback(uint8_t sender_id __attribute__((unused)),float vx, float vy, float range){
+	int i = -1; // Initialize the index of all tracked drones (-1 for null assumption of no drone found).
+
+	// Check if a new aircraft ID is present, if it's a new ID we start a new EKF for it.
+	if (( !array_find_int(NUAVS-1, IDarray, ac_id, &i))  // If yes, a new drone is found.
+		   && (nf < NUAVS-1))  // If yes, the amount of drones does not exceed the maximum.
+	{
+		IDarray[nf] = ac_id; 				// Store ID in an array (logging purposes)
+		ekf_filter_new(&ekf[nf]); 			// Initialize an EKF filter for the newfound drone
+
+		// Set up the Q and R matrices and all the rest
+		// Weights are based on:
+		// Coppola et al, "On-board Communication-based Relative Localization for Collision Avoidance in Micro Air Vehicle teams", 2017
+		fmat_scal_mult(EKF_N,EKF_N, ekf[nf].Q, pow(0.5,2.0), ekf[nf].Q);
+		fmat_scal_mult(EKF_M,EKF_M, ekf[nf].R, pow(SPEEDNOISE,2.0), ekf[nf].R);
+		ekf[nf].Q[0]   	   = 0.01; // Reccomended 0.01 to give this process a high level of trust
+		ekf[nf].Q[EKF_N+1] = 0.01;
+		ekf[nf].R[0]   = pow(RSSINOISE,2.0);
+
+		// Initialize the states
+		// Initial position cannot be zero or the filter will divide by zero on initialization
+		ekf[i].X[0] = 1.0; // Relative position North
+		ekf[i].X[1] = 1.0; // Relative position East
+		// The other variables can be initialized at 0
+		ekf[i].X[2] = 0.0; // Own Velocity North
+		ekf[i].X[3] = 0.0; // Own Velocity East
+		ekf[i].X[4] = 0.0; // Relative velocity North
+		ekf[i].X[5] = 0.0; // Relative velocity East
+		ekf[i].X[6] = 0.0; // Height difference
+
+		ekf[nf].dt       = 0.2;  // Initial assumption for time difference between messages (STDMA code runs at 5Hz)
+		model[nf].Pn     = -63;  // Expected RSSI at 1m (based on experience)
+		model[nf].gammal = 2.0;	 // Expected Space-loss parameter (based on free space assumption)
+		nf++; 					 // Number of filter is present is increased
+	}
+	// Else, if we do recognize the ID, then we can update the measurement message data
+	else if ((i != -1) || (nf == (NUAVS-1)) )
+	{
+		RSSIarray[i] = (float)rssi; // Store RSSI in array (for logging purposes)
+
+		// Get own velocities
+		float ownVx = stateGetSpeedEnu_f()->y; // Velocity North in NED
+		float ownVy = stateGetSpeedEnu_f()->x; // Velocity East in NED
+		// Bind to realistic amounts to avoid occasional spikes/NaN/inf errors
+		keepbounded(&ownVx,-2.0,2.0);
+		keepbounded(&ownVy,-2.0,2.0);
+
+		// Make the filter only in Guided mode (flight).
+		// This is because it is best for the filter should only start once the drones are in motion,
+		// otherwise it might diverge while drones are not moving.
+		if (guidance_h.mode == GUIDANCE_H_MODE_GUIDED)
+		{
+			ekf[i].dt = (get_sys_time_usec() - now_ts[i])/pow(10,6); // Update the time between messages
+
+			// Get the velocity in NED for the tracked aircraft
+			float trackedVx, trackedVy;
+			polar2cart(acInfoGetGspeed(ac_id), acInfoGetCourse(ac_id), &trackedVx, &trackedVy); // get North and East velocities (m/s)
+			// As for own velocity, bind to realistic amounts to avoid occasional spikes/NaN/inf errors
+			keepbounded(&trackedVx,-2.0,2.0);
+			keepbounded(&trackedVy,-2.0,2.0);
+
+			// Construct measurement vector Y for EKF using the latest data obtained.
+			// Y = [RSSI owvVx ownVy trackedVx trackedVy dh], EKF_M = 6 as defined in discreteekf.h
+			float Y[EKF_M];
+			Y[0] = (float)rssi; 	//RSSI measurement
+			Y[1] = ownVx; 	   		// Own velocity North (NED frame)
+			Y[2] = ownVy;			// Own velocity East  (NED frame)
+			Y[3] = trackedVx;  		// Velocity of other drone Norht (NED frame)
+			Y[4] = trackedVy;		// Velocity of other drone East  (NED frame)
+			Y[5] = acInfoGetPositionUtm_f(ac_id)->alt - stateGetPositionEnu_f()->z;  // Height difference
+
+			// Run the steps of the EKF, but only if velocity difference is significant (to filter out minimal noise)
+			if (  sqrt( pow(Y[1]-Y[3],2) + pow(Y[2]-Y[4],2) ) > 0.05 )
+			{
+				ekf_filter_predict(&ekf[i], &model[i]); // Prediction step of the EKF
+				ekf_filter_update(&ekf[i], Y);	// Update step of the EKF
+			}
+		}
+
+		now_ts[i] = get_sys_time_usec();  // Store latest time
+
+	}
+};
 
