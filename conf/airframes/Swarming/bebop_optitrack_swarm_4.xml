@@ -5,9 +5,10 @@
   <firmware name="rotorcraft">
     <target name="ap" board="bebop">
       <!-- HOST is the Name or IP of your AC -->
-      <!--configure name="HOST" value="192.168.1.$(AC_ID)"/>
-      < MODEM_HOST is where the data should go to, for short normally your laptop IP address>
-      <configure name="MODEM_HOST" value="192.168.1.26"/-->
+      <configure name="HOST" value="192.168.1.32"/>
+      <!-- MODEM_HOST is where the data should go to, for short normally your laptop IP address -->
+      <configure name="MODEM_HOST" value="192.168.1.3"/>
+      <configure name="MODEM_BROADCAST" value="FALSE"/>
     </target>
 
     <target name="nps" board="pc">
