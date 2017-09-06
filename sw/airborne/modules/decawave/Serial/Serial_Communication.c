@@ -105,7 +105,7 @@ float range_float = 0.0;
 static void decodeHighBytes(void);
 static void encodeHighBytes(uint8_t* sendData, uint8_t msgSize);
 static void checkBigEndian(void);
-static void send_range_pos(struct transport_tx *trans, struct link_device *dev);
+//static void send_range_pos(struct transport_tx *trans, struct link_device *dev);
 static void handleNewStateValue(uint8_t nodeIndex, uint8_t msgType, float value);
 static void setNodeStatesFalse(uint8_t index);
 static void setAllNodeStatesFalse();
@@ -123,7 +123,7 @@ void decawave_serial_init(void)
 {
 	//initNodes();
 	setAllNodeStatesFalse();
-	register_periodic_telemetry(DefaultPeriodic, PPRZ_MSG_ID_RANGE_POS, send_range_pos);
+	//register_periodic_telemetry(DefaultPeriodic, PPRZ_MSG_ID_RANGE_POS, send_range_pos);
 	//SerialUartSetBaudrate(SERIAL_BAUD);
 	//uart_periph_set_baudrate(&uart1,B9600);
 }
@@ -196,6 +196,7 @@ static void checkStatesUpdated(){
 }
 
 
+/*
 static void send_range_pos(struct transport_tx *trans, struct link_device *dev){
 	current_pos = *stateGetPositionNed_f();
 	current_speed = *stateGetSpeedNed_f();
@@ -203,7 +204,7 @@ static void send_range_pos(struct transport_tx *trans, struct link_device *dev){
 	current_angles = *stateGetNedToBodyEulers_f();
 	pprz_msg_send_RANGE_POS(trans,dev,AC_ID,&range_float,&current_pos.x,&current_pos.y,&current_pos.z,&current_speed.x,&current_speed.y,&current_speed.z,&current_accel.x,&current_accel.y,&current_accel.z,&current_angles.phi,&current_angles.theta,&current_angles.psi);
 }
-
+*/
 
 /**
  * Function for receiving serial data.
