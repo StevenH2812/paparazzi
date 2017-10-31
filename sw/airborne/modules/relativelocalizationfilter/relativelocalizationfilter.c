@@ -197,7 +197,8 @@ static void uwbmsg_cb(uint8_t sender_id __attribute__((unused)),
 		ekf[nf].P[EKF_N*3+3] = 0.1;
 		ekf[nf].P[EKF_N*4+4] = 0.1;
 		ekf[nf].P[EKF_N*5+5] = 0.1;
-		ekf[nf].P[EKF_N*5+5] = 0.1;
+		ekf[nf].P[EKF_N*6+6] = 0.1;
+		ekf[nf].P[EKF_N*7+7] = 0.25;
 
 		// Initialize the states
 		// Initial position cannot be zero or the filter will divide by zero on initialization
@@ -247,7 +248,7 @@ static void uwbmsg_cb(uint8_t sender_id __attribute__((unused)),
 			Y[2] = ownVy;			// Own velocity East  (NED frame)
 			Y[3] = trackedVx;  		// Velocity of other drone Norht (NED frame)
 			Y[4] = trackedVy;		// Velocity of other drone East  (NED frame)
-			Y[5] = trackedh - stateGetPositionEnu_f()->z;  // Height difference
+			Y[5] = trackedh - stateGetPositionNed_f()->z;  // Height difference
 			// Run the steps of the EKF, but only if velocity difference is significant (to filter out minimal noise)
 			ekf_filter_predict(&ekf[i]); // Prediction step of the EKF
 			ekf_filter_update(&ekf[i], Y);	// Update step of the EKF

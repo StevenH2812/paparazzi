@@ -261,7 +261,7 @@ void linear_measure(float*X, float* Y, float *H)
 		{
 			// x, y, and z pos columns are affected by the RSSI
 			if ((row == 0) && (col == 0 || col == 1 || col == 6 )) {
-				H[ row*EKF_N+col ] = X[col]/(pow(X[0],2.0) + pow(X[1],2.0) + pow(X[6],2.0));
+				H[ row*EKF_N+col ] = X[col]/sqrt((pow(X[0],2.0) + pow(X[1],2.0) + pow(X[6],2.0)));
 			}
 			
 			// All other values are 1
@@ -270,7 +270,7 @@ void linear_measure(float*X, float* Y, float *H)
 				((row == 3) && (col == 4)) ||
 				((row == 4) && (col == 5)) ||
 				((row == 5) && (col == 6)) ||
-				((row == 6) && (col == 7)))
+				((row == 0) && (col == 7)))
 			{
 				H[ row*EKF_N+col ] = 1.0;
 			}
