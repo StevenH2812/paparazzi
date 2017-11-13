@@ -27,6 +27,10 @@
 #ifndef FILE_LOGGER_H_
 #define FILE_LOGGER_H_
 
+#include "std.h"
+
+extern bool loggingStartedFnip;
+
 extern void file_logger_start(void);
 extern void file_logger_stop(void);
 extern void file_logger_periodic(void);

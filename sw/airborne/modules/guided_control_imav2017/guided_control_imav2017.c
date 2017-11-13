@@ -26,7 +26,7 @@
  */
 
 #include <math.h>
-#include "modules/relativelocalizationfilter/relativelocalizationfilter.h"
+//#include "modules/relativelocalizationfilter/relativelocalizationfilter.h"
 #include "math/pprz_algebra_int.h"
 #include "navigation.h"
 #include "autopilot.h"
@@ -37,7 +37,9 @@
 #include "guided_control_imav2017.h"
 // // ABI messages
 #include "subsystems/abi.h"
+#include "../loggers/file_logger.h"
 
+/* tracking parameters
 static abi_event uwb_ev;
 
 static float rec_velx = 0.0;
@@ -63,7 +65,9 @@ static float dgain = 0.2;
 static float vgain = 0.5;
 
 static pthread_mutex_t ekf_mutex;
+*/ //end tracking parameters
 
+/*
 static void keepBounded(float bound);
 static void uwb_cb(uint8_t sender_id __attribute__((unused)),
 		uint8_t ac_id, float range, float trackedVx, float trackedVy, float trackedh);
@@ -75,14 +79,39 @@ static void uwb_cb(uint8_t sender_id __attribute__((unused)),
 	rec_height = trackedh;
 
 }
+*/
+
+//bool loggingStarted = false;
 
 void guided_control_imav2017_init(void){
+	/*
 	AbiBindMsgUWB(ABI_BROADCAST, &uwb_ev, uwb_cb); // Subscribe to the ABI RSSI messages
 	oldtime = get_sys_time_usec()/pow(10,6);
+	*/
 }
 
 void guided_control_imav2017_periodic(void){
 	
+}
+
+bool setHeadingToDegrees(float headingDegree){
+	bool temp = true;
+	temp &= guidance_h_set_guided_heading(RadOfDeg(headingDegree));
+	return !temp;
+}
+
+bool setBodyForwardVelocity(float velx, float cmd_height){
+	bool temp = true;
+	temp &= guidance_v_set_guided_z(-cmd_height);
+	temp &= guidance_h_set_guided_body_vel(velx, 0.0);
+	return !temp; // Returning FALSE means in the flight plan that the function executed successfully.
+}
+
+bool setBodyRightVelocity(float vely, float cmd_height){
+	bool temp = true;
+	temp &= guidance_v_set_guided_z(-cmd_height);
+	temp &= guidance_h_set_guided_body_vel(0.0, vely);
+	return !temp; // Returning FALSE means in the flight plan that the function executed successfully.
 }
 
 // First put both here.
@@ -90,9 +119,45 @@ bool hoverGuided(float cmd_height){
 	bool temp = true;
 	temp &= guidance_v_set_guided_z(-cmd_height);
 	temp &= guidance_h_set_guided_vel(0.0,0.0);
-	temp &= guidance_h_set_guided_heading(0.0); // not reccommended if without a good heading estimate
+	//temp &= guidance_h_set_guided_heading(0.0); // not reccommended if without a good heading estimate
 	return !temp; // Returning FALSE means in the flight plan that the function executed successfully.
 }
+
+bool hoverGuidedStart(float cmd_height){
+	bool temp = true;
+	temp &= guidance_v_set_guided_z(-cmd_height);
+	temp &= guidance_h_set_guided_vel(0.0,0.0);
+	//temp &= guidance_h_set_guided_heading(0.0); // not reccommended if without a good heading estimate
+	//Start the file logging
+	if(!loggingStartedFnip){
+		file_logger_start();
+		loggingStartedFnip = true;
+	}
+
+	return !temp; // Returning FALSE means in the flight plan that the function executed successfully.
+}
+
+bool hoverGuidedEnd(float cmd_height){
+	bool temp = true;
+	temp &= guidance_v_set_guided_z(-cmd_height);
+	temp &= guidance_h_set_guided_vel(0.0,0.0);
+	//temp &= guidance_h_set_guided_heading(0.0); // not reccommended if without a good heading estimate
+
+	if(loggingStartedFnip){
+		loggingStartedFnip = false;
+		file_logger_stop();
+
+	}
+
+	return !temp; // Returning FALSE means in the flight plan that the function executed successfully.
+
+}
+
+
+
+
+
+/* tracking stuff
 
 bool trackOther(float cmd_height){
 	newtime = get_sys_time_usec()/pow(10,6);
@@ -147,13 +212,13 @@ bool trackRelPos(float cmd_height){
 	float relxerr = relx-relxcom; //positive error means VX must increase
 	float relyerr = rely-relycom; // positive error means VY must increase
 
-	/*
-	if(relyerr>0){
-		pgainy=0.2;
-	}
-	else{
-		pgainy = 0.5;
-	}*/
+
+	//if(relyerr>0){
+	//	pgainy=0.2;
+	//}
+	//else{
+	//	pgainy = 0.5;
+	//}
 
 	float Vmag = sqrt(rec_velx*rec_velx+rec_vely*rec_vely);
 
@@ -206,14 +271,8 @@ bool setForwardAndTrack(float velx, float cmd_height){
 	float vycommand = pgainy*relyerr;
 	temp &= guidance_h_set_guided_vel(vxcommand,vycommand);
 	return !temp; //Returning FALSE means in the flight plan that the function executed successfully.
-}
 
-bool goLand(void){
-	bool temp = true;
-	temp &= guidance_v_set_guided_vz(0.1);
-	temp &= guidance_v_set_guided_z(0.0);
-	temp &= guidance_h_set_guided_vel(0.0,0.0);
-	return !temp;
+
 }
 
 static void keepBounded(float bound){
@@ -224,3 +283,14 @@ static void keepBounded(float bound){
 		rec_vely = rec_vely / (abs(rec_vely)*bound);
 	}
 }
+*/ //end tracking stuff
+
+bool goLand(void){
+	bool temp = true;
+	temp &= guidance_v_set_guided_vz(0.1);
+	temp &= guidance_v_set_guided_z(0.0);
+	temp &= guidance_h_set_guided_vel(0.0,0.0);
+	return !temp;
+}
+
+

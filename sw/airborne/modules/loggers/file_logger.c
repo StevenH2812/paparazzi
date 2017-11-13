@@ -33,6 +33,8 @@
 #include "firmwares/rotorcraft/stabilization.h"
 #include "state.h"
 
+bool loggingStartedFnip = false;
+
 /** Set the default File logger path to the USB drive */
 #ifndef FILE_LOGGER_PATH
 #define FILE_LOGGER_PATH /data/video/usb
@@ -41,10 +43,20 @@
 /** The file pointer */
 static FILE *file_logger = NULL;
 
+uint32_t counter = 0;
+
+struct NedCoor_f posNED;
+struct NedCoor_f speedNED;
+struct NedCoor_f accelNED;
+struct FloatEulers eulerAngles;
+struct FloatRates bodyRates;
+float speedDir;
+float speedNorm;
+
 /** Start the file logger and open a new file */
 void file_logger_start(void)
 {
-  uint32_t counter = 0;
+  counter = 0;
   char filename[512];
 
   // Check for available files
@@ -59,10 +71,13 @@ void file_logger_start(void)
   file_logger = fopen(filename, "w");
 
   if (file_logger != NULL) {
+	  /*
     fprintf(
       file_logger,
       "counter,gyro_unscaled_p,gyro_unscaled_q,gyro_unscaled_r,accel_unscaled_x,accel_unscaled_y,accel_unscaled_z,mag_unscaled_x,mag_unscaled_y,mag_unscaled_z,COMMAND_THRUST,COMMAND_ROLL,COMMAND_PITCH,COMMAND_YAW,qi,qx,qy,qz\n"
-    );
+    );*/
+	  fprintf(file_logger,
+			  "posNEDx,posNEDy,posNEDz,speedNEDx,speedNEDy,speedNEDz,speedDir,speedNorm,accelNEDx,accelNEDy,accelNEDz,eulerPhi,eulerTheta,eulerPsi,ratep,rateq,rater,unscaledp,unscaledq,unscaledr\n");
   }
 }
 
@@ -78,14 +93,22 @@ void file_logger_stop(void)
 /** Log the values to a csv file */
 void file_logger_periodic(void)
 {
-  if (file_logger == NULL) {
+	posNED = *stateGetPositionNed_f();
+	speedNED = *stateGetSpeedNed_f();
+	accelNED = *stateGetAccelNed_f();
+	speedDir = stateGetHorizontalSpeedDir_f();
+	speedNorm = stateGetHorizontalSpeedNorm_f();
+	eulerAngles = *stateGetNedToBodyEulers_f();
+	bodyRates = *stateGetBodyRates_f();
+	//printf("speedNED is %f, %f, %f, norm, dir is %f, %f, %f\n",speedNED.x,speedNED.y,speedNED.z,speedNorm,speedDir,DegOfRad(speedDir));
+  if (file_logger == NULL || !loggingStartedFnip) {
     return;
   }
-  static uint32_t counter;
   struct Int32Quat *quat = stateGetNedToBodyQuat_i();
 
-  fprintf(file_logger, "%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d\n",
+  fprintf(file_logger, "%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f\n",
           counter,
+
           imu.gyro_unscaled.p,
           imu.gyro_unscaled.q,
           imu.gyro_unscaled.r,
