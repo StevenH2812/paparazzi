@@ -77,7 +77,7 @@ void file_logger_start(void)
       "counter,gyro_unscaled_p,gyro_unscaled_q,gyro_unscaled_r,accel_unscaled_x,accel_unscaled_y,accel_unscaled_z,mag_unscaled_x,mag_unscaled_y,mag_unscaled_z,COMMAND_THRUST,COMMAND_ROLL,COMMAND_PITCH,COMMAND_YAW,qi,qx,qy,qz\n"
     );*/
 	  fprintf(file_logger,
-			  "counter,posNEDx,posNEDy,posNEDz,speedNEDx,speedNEDy,speedNEDz,speedDir,speedNorm,accelNEDx,accelNEDy,accelNEDz,eulerPhi,eulerTheta,eulerPsi,ratep,rateq,rater,scaledp,scaledq,scaledr,scaledaccx,scaledaccy,scaledaccz,scaledmagx,caledmagy,scaledmagz\n");
+			  "counter,time,posNEDx,posNEDy,posNEDz,speedNEDx,speedNEDy,speedNEDz,speedDir,speedNorm,accelNEDx,accelNEDy,accelNEDz,eulerPhi,eulerTheta,eulerPsi,ratep,rateq,rater,scaledp,scaledq,scaledr,scaledaccx,scaledaccy,scaledaccz,scaledmagx,caledmagy,scaledmagz\n");
   }
 }
 
@@ -128,8 +128,9 @@ void file_logger_periodic(void)
           quat->qy,
           quat->qz
          );*/
-  fprintf(file_logger,"%i,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f\n",
+  fprintf(file_logger,"%i,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f\n",
 		  logCounter,
+		  (float)(get_sys_time_usec()/pow(10,6)),
 		  posNED.x,
 		  posNED.y,
 		  posNED.z,
