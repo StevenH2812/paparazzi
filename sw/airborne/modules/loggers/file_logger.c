@@ -43,7 +43,7 @@ bool loggingStartedFnip = false;
 /** The file pointer */
 static FILE *file_logger = NULL;
 
-uint32_t counter = 0;
+uint32_t logCounter = 0;
 
 struct NedCoor_f posNED;
 struct NedCoor_f speedNED;
@@ -56,16 +56,16 @@ float speedNorm;
 /** Start the file logger and open a new file */
 void file_logger_start(void)
 {
-  counter = 0;
+  logCounter = 0;
   char filename[512];
 
   // Check for available files
-  sprintf(filename, "%s/%05d.csv", STRINGIFY(FILE_LOGGER_PATH), counter);
+  sprintf(filename, "%s/%05d.txt", STRINGIFY(FILE_LOGGER_PATH), logCounter);
   while ((file_logger = fopen(filename, "r"))) {
     fclose(file_logger);
 
-    counter++;
-    sprintf(filename, "%s/%05d.csv", STRINGIFY(FILE_LOGGER_PATH), counter);
+    logCounter++;
+    sprintf(filename, "%s/%05d.txt", STRINGIFY(FILE_LOGGER_PATH), logCounter);
   }
 
   file_logger = fopen(filename, "w");
@@ -77,7 +77,7 @@ void file_logger_start(void)
       "counter,gyro_unscaled_p,gyro_unscaled_q,gyro_unscaled_r,accel_unscaled_x,accel_unscaled_y,accel_unscaled_z,mag_unscaled_x,mag_unscaled_y,mag_unscaled_z,COMMAND_THRUST,COMMAND_ROLL,COMMAND_PITCH,COMMAND_YAW,qi,qx,qy,qz\n"
     );*/
 	  fprintf(file_logger,
-			  "posNEDx,posNEDy,posNEDz,speedNEDx,speedNEDy,speedNEDz,speedDir,speedNorm,accelNEDx,accelNEDy,accelNEDz,eulerPhi,eulerTheta,eulerPsi,ratep,rateq,rater,unscaledp,unscaledq,unscaledr\n");
+			  "counter,posNEDx,posNEDy,posNEDz,speedNEDx,speedNEDy,speedNEDz,speedDir,speedNorm,accelNEDx,accelNEDy,accelNEDz,eulerPhi,eulerTheta,eulerPsi,ratep,rateq,rater,scaledp,scaledq,scaledr,scaledaccx,scaledaccy,scaledaccz,scaledmagx,caledmagy,scaledmagz\n");
   }
 }
 
@@ -104,7 +104,7 @@ void file_logger_periodic(void)
   if (file_logger == NULL || !loggingStartedFnip) {
     return;
   }
-  struct Int32Quat *quat = stateGetNedToBodyQuat_i();
+/*  struct Int32Quat *quat = stateGetNedToBodyQuat_i();
 
   fprintf(file_logger, "%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f\n",
           counter,
@@ -116,7 +116,8 @@ void file_logger_periodic(void)
           imu.accel_unscaled.y,
           imu.accel_unscaled.z,
           imu.mag_unscaled.x,
-          imu.mag_unscaled.y,
+          imu.mag_unscaled.y,,
+
           imu.mag_unscaled.z,
           stabilization_cmd[COMMAND_THRUST],
           stabilization_cmd[COMMAND_ROLL],
@@ -126,6 +127,34 @@ void file_logger_periodic(void)
           quat->qx,
           quat->qy,
           quat->qz
-         );
-  counter++;
+         );*/
+  fprintf(file_logger,"%i,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f\n",
+		  logCounter,
+		  posNED.x,
+		  posNED.y,
+		  posNED.z,
+		  speedNED.x,
+		  speedNED.y,
+		  speedNED.z,
+		  speedDir,
+		  speedNorm,
+		  accelNED.x,
+		  accelNED.y,
+		  accelNED.z,
+		  eulerAngles.phi,
+		  eulerAngles.theta,
+		  eulerAngles.psi,
+		  bodyRates.p,
+		  bodyRates.q,
+		  bodyRates.r,
+		  RATE_FLOAT_OF_BFP(imu.gyro.p),
+		  RATE_FLOAT_OF_BFP(imu.gyro.q),
+		  RATE_FLOAT_OF_BFP(imu.gyro.r),
+		  ACCEL_FLOAT_OF_BFP(imu.accel.x),
+		  ACCEL_FLOAT_OF_BFP(imu.accel.y),
+		  ACCEL_FLOAT_OF_BFP(imu.accel.z),
+		  MAG_FLOAT_OF_BFP(imu.mag.x),
+		  MAG_FLOAT_OF_BFP(imu.mag.y),
+		  MAG_FLOAT_OF_BFP(imu.mag.z));
+  logCounter++;
 }

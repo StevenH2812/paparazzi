@@ -28,8 +28,8 @@
 		</sector>
 	</sectors>
 	<variables>
-		<variable var="vxfp" min="-3" max="3" step="0.5" init="1" />
-		<variable var="vyfp" min="-3" max="3" step="0.5" init="1"/>
+		<variable var="vxfp" min="-3" max="3" step="0.1" init="0.5" />
+		<variable var="vyfp" min="-3" max="3" step="0.1" init="0.5"/>
 		<variable var="heightfp" min="0" max="3" step="0.1" init="1"/>
 		<variable var="headingAngle" min="0" max="360" step="5" init="0"/>
 	</variables>
@@ -66,7 +66,7 @@
         	<while cond="TRUE">
         		<call fun="setBodyForwardVelocity(vxfp, heightfp)"/>     
         	</while>        
-        	<exception cond="block_time>2" deroute="Hover guided end"/>
+        	<exception cond="block_time>4/vxfp" deroute="Hover guided end"/>
         </block> 
         <block name="Fly backward delay">        
         	<while cond="TRUE">
@@ -78,7 +78,7 @@
         	<while cond="TRUE">
         		<call fun="setBodyForwardVelocity(-vxfp, heightfp)"/>     
         	</while>        
-        	<exception cond="block_time>2" deroute="Hover guided end"/>
+        	<exception cond="block_time>4/vxfp" deroute="Hover guided end"/>
         </block> 
         <block name="Fly right delay">        
         	<while cond="TRUE">
@@ -90,7 +90,7 @@
         	<while cond="TRUE">
         		<call fun="setBodyRightVelocity(vyfp, heightfp)"/>     
         	</while>        
-        	<exception cond="block_time>2" deroute="Hover guided end"/>
+        	<exception cond="block_time>4/vyfp" deroute="Hover guided end"/>
         </block> 
         <block name="Fly left delay">        
         	<while cond="TRUE">
@@ -102,7 +102,7 @@
         	<while cond="TRUE">
         		<call fun="setBodyRightVelocity(-vyfp, heightfp)"/>     
         	</while>        
-        	<exception cond="block_time>2" deroute="Hover guided end"/>
+        	<exception cond="block_time>4/vyfp" deroute="Hover guided end"/>
         </block> 
         <block name="Hover guided end">
         	<while cond="TRUE">
